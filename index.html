@@ -1,456 +1,314 @@
-// Weather Dashboard API Configuration
-const API_KEY = '9d1b8dbf4afdc774323471feebf27309'; // OpenWeatherMap Free API Key
-const BASE_URL = 'https://api.openweathermap.org/data/2.5';
-const GEO_API = 'https://api.openweathermap.org/geo/1.0';
+```html
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Studio Noor — Creative Design Studio</title>
+<style>
+  :root{
+    --ink:#1c1a17;
+    --paper:#faf7f2;
+    --moss:#3f5b45;
+    --clay:#b5533c;
+    --line:#dcd5c9;
+    --font-display: 'Georgia', 'Times New Roman', serif;
+    --font-body: 'Helvetica Neue', Arial, sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html{scroll-behavior:smooth;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:var(--font-body);
+    line-height:1.6;
+    overflow-x:hidden;
+  }
+  a{color:inherit;text-decoration:none;}
+  img{max-width:100%;display:block;}
 
-// DOM Elements
-const searchInput = document.getElementById('searchInput');
-const searchBtn = document.getElementById('searchBtn');
-const locationBtn = document.getElementById('locationBtn');
-const errorMessage = document.getElementById('errorMessage');
-const loading = document.getElementById('loading');
-const weatherContent = document.getElementById('weatherContent');
-const welcomeMessage = document.getElementById('welcomeMessage');
-const suggestions = document.getElementById('suggestions');
-const suggestionsBox = document.querySelector('.suggestions');
-const favoritesList = document.getElementById('favoritesList');
-const clearFavoritesBtn = document.getElementById('clearFavoritesBtn');
+  header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:28px 6vw;
+    position:sticky;
+    top:0;
+    background:rgba(250,247,242,0.92);
+    backdrop-filter:blur(6px);
+    z-index:100;
+    border-bottom:1px solid var(--line);
+  }
+  .logo{
+    font-family:var(--font-display);
+    font-size:1.4rem;
+    letter-spacing:0.5px;
+  }
+  nav ul{
+    display:flex;
+    gap:36px;
+    list-style:none;
+  }
+  nav a{
+    font-size:0.95rem;
+    position:relative;
+    padding-bottom:4px;
+  }
+  nav a::after{
+    content:"";
+    position:absolute;
+    left:0; bottom:0;
+    width:0%; height:1px;
+    background:var(--clay);
+    transition:width 0.3s ease;
+  }
+  nav a:hover::after{width:100%;}
 
-// State
-let favorites = JSON.parse(localStorage.getItem('weatherFavorites')) || [];
-let debounceTimer;
+  .hero{
+    min-height:86vh;
+    display:flex;
+    align-items:center;
+    padding:0 6vw;
+    position:relative;
+  }
+  .hero-content{max-width:720px;}
+  .hero h1{
+    font-family:var(--font-display);
+    font-size:clamp(2.6rem, 6vw, 5rem);
+    line-height:1.05;
+    font-weight:400;
+    margin-bottom:28px;
+  }
+  .hero p{
+    font-size:1.15rem;
+    max-width:520px;
+    color:#4a463f;
+    margin-bottom:40px;
+  }
+  .btn{
+    display:inline-block;
+    padding:14px 32px;
+    border:1px solid var(--ink);
+    font-size:0.95rem;
+    transition:all 0.25s ease;
+  }
+  .btn:hover{
+    background:var(--ink);
+    color:var(--paper);
+  }
+  .hero-mark{
+    position:absolute;
+    right:6vw;
+    top:50%;
+    transform:translateY(-50%);
+    width:280px;
+    height:280px;
+    border-radius:50%;
+    background:var(--moss);
+    opacity:0.9;
+  }
+  @media(max-width:900px){ .hero-mark{display:none;} }
 
-// Initialize
-document.addEventListener('DOMContentLoaded', () => {
-    initializeApp();
-});
+  section{
+    padding:110px 6vw;
+    border-top:1px solid var(--line);
+  }
+  .section-title{
+    font-family:var(--font-display);
+    font-size:clamp(1.8rem,3vw,2.6rem);
+    font-weight:400;
+    margin-bottom:56px;
+    max-width:600px;
+  }
 
-function initializeApp() {
-    loadFavorites();
-    addEventListeners();
-}
+  .work-grid{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:2px;
+    background:var(--line);
+  }
+  .work-item{
+    background:var(--paper);
+    padding:40px 32px;
+    min-height:220px;
+    display:flex;
+    flex-direction:column;
+    justify-content:space-between;
+    transition:background 0.3s ease;
+  }
+  .work-item:hover{background:#f0ebe0;}
+  .work-item h3{
+    font-family:var(--font-display);
+    font-size:1.3rem;
+    font-weight:400;
+  }
+  .work-item span{
+    font-size:0.85rem;
+    color:#7a746a;
+  }
+  @media(max-width:800px){ .work-grid{grid-template-columns:1fr;} }
 
-function addEventListeners() {
-    searchBtn.addEventListener('click', searchWeather);
-    locationBtn.addEventListener('click', getCurrentLocation);
-    searchInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') searchWeather();
-    });
-    searchInput.addEventListener('input', handleSearchInput);
-    clearFavoritesBtn.addEventListener('click', clearAllFavorites);
-    
-    // Close suggestions when clicking outside
-    document.addEventListener('click', (e) => {
-        if (!e.target.closest('.search-section')) {
-            suggestionsBox.classList.remove('active');
-        }
-    });
-}
+  .about{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:60px;
+    align-items:start;
+  }
+  .about p{
+    color:#4a463f;
+    margin-bottom:20px;
+    max-width:520px;
+  }
+  .stats{
+    display:flex;
+    gap:48px;
+    margin-top:36px;
+  }
+  .stat b{
+    font-family:var(--font-display);
+    font-size:2.2rem;
+    display:block;
+  }
+  .stat span{
+    font-size:0.85rem;
+    color:#7a746a;
+  }
+  @media(max-width:800px){ .about{grid-template-columns:1fr;} }
 
-// Search functionality with debounce
-function handleSearchInput() {
-    clearTimeout(debounceTimer);
-    const query = searchInput.value.trim();
-    
-    if (query.length < 2) {
-        suggestionsBox.classList.remove('active');
-        return;
-    }
-    
-    debounceTimer = setTimeout(() => {
-        fetchCitySuggestions(query);
-    }, 300);
-}
+  .contact{
+    text-align:left;
+  }
+  .contact-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-end;
+    flex-wrap:wrap;
+    gap:40px;
+  }
+  .contact h2{
+    font-family:var(--font-display);
+    font-size:clamp(2rem,4vw,3.2rem);
+    font-weight:400;
+    max-width:600px;
+  }
+  form{
+    display:flex;
+    flex-direction:column;
+    gap:18px;
+    max-width:480px;
+    margin-top:40px;
+  }
+  input, textarea{
+    background:transparent;
+    border:none;
+    border-bottom:1px solid var(--line);
+    padding:12px 4px;
+    font-family:var(--font-body);
+    font-size:1rem;
+    color:var(--ink);
+  }
+  input:focus, textarea:focus{
+    outline:none;
+    border-bottom-color:var(--ink);
+  }
+  textarea{resize:vertical;min-height:80px;}
 
-async function fetchCitySuggestions(query) {
-    try {
-        const response = await fetch(
-            `${GEO_API}/direct?q=${query}&limit=5&appid=${API_KEY}`
-        );
-        const data = await response.json();
-        
-        if (data.length > 0) {
-            displaySuggestions(data);
-        } else {
-            suggestionsBox.classList.remove('active');
-        }
-    } catch (error) {
-        console.error('Error fetching suggestions:', error);
-    }
-}
+  footer{
+    padding:32px 6vw;
+    display:flex;
+    justify-content:space-between;
+    font-size:0.85rem;
+    color:#7a746a;
+    border-top:1px solid var(--line);
+  }
 
-function displaySuggestions(cities) {
-    suggestions.innerHTML = '';
-    
-    cities.forEach(city => {
-        const item = document.createElement('div');
-        item.className = 'suggestion-item';
-        const countryName = city.country ? `, ${city.country}` : '';
-        const stateName = city.state ? `, ${city.state}` : '';
-        item.textContent = `${city.name}${stateName}${countryName}`;
-        
-        item.addEventListener('click', () => {
-            searchInput.value = `${city.name}${stateName}${countryName}`;
-            suggestionsBox.classList.remove('active');
-            fetchWeatherByCoordinates(city.lat, city.lon);
-        });
-        
-        suggestions.appendChild(item);
-    });
-    
-    suggestionsBox.classList.add('active');
-}
+  ::selection{background:var(--clay);color:var(--paper);}
+</style>
+</head>
+<body>
 
-async function searchWeather() {
-    const city = searchInput.value.trim();
-    
-    if (!city) {
-        showError('Please enter a city name');
-        return;
-    }
-    
-    try {
-        const response = await fetch(
-            `${GEO_API}/direct?q=${city}&limit=1&appid=${API_KEY}`
-        );
-        const data = await response.json();
-        
-        if (data.length > 0) {
-            const { lat, lon } = data[0];
-            fetchWeatherByCoordinates(lat, lon);
-            suggestionsBox.classList.remove('active');
-        } else {
-            showError('City not found. Please try another search.');
-        }
-    } catch (error) {
-        showError('Error searching for city');
-        console.error('Search error:', error);
-    }
-}
+<header>
+  <div class="logo">Studio Noor</div>
+  <nav>
+    <ul>
+      <li><a href="#work">Kaam</a></li>
+      <li><a href="#about">Hamare Baare Mein</a></li>
+      <li><a href="#contact">Sampark</a></li>
+    </ul>
+  </nav>
+</header>
 
-async function getCurrentLocation() {
-    if (!navigator.geolocation) {
-        showError('Geolocation is not supported by your browser');
-        return;
-    }
-    
-    showLoading(true);
-    navigator.geolocation.getCurrentPosition(
-        (position) => {
-            const { latitude, longitude } = position.coords;
-            fetchWeatherByCoordinates(latitude, longitude);
-        },
-        (error) => {
-            showError(`Geolocation error: ${error.message}`);
-            showLoading(false);
-        }
-    );
-}
+<section class="hero">
+  <div class="hero-content">
+    <h1>Ideas ko shape dete hain, form aur feel dono mein.</h1>
+    <p>Hum ek chhota design studio hain jo brands, spaces aur digital products ke liye soch-samajh kar kaam karte hain — har project apni kahani ke saath.</p>
+    <a href="#contact" class="btn">Project shuru karein</a>
+  </div>
+  <div class="hero-mark"></div>
+</section>
 
-async function fetchWeatherByCoordinates(lat, lon) {
-    showLoading(true);
-    hideError();
-    
-    try {
-        const [currentResponse, forecastResponse, pollutionResponse] = await Promise.all([
-            fetch(`${BASE_URL}/weather?lat=${lat}&lon=${lon}&units=metric&appid=${API_KEY}`),
-            fetch(`${BASE_URL}/forecast?lat=${lat}&lon=${lon}&units=metric&appid=${API_KEY}`),
-            fetch(`https://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${lon}&appid=${API_KEY}`)
-        ]);
-        
-        if (!currentResponse.ok) throw new Error('Failed to fetch weather');
-        
-        const currentData = await currentResponse.json();
-        const forecastData = await forecastResponse.json();
-        const pollutionData = await pollutionResponse.json();
-        
-        displayWeather(currentData, forecastData, pollutionData);
-        addToFavorites(currentData.name, currentData.sys.country);
-        
-    } catch (error) {
-        showError('Failed to fetch weather data. Please try again.');
-        console.error('Fetch error:', error);
-    } finally {
-        showLoading(false);
-    }
-}
+<section id="work">
+  <h2 class="section-title">Chuna hua kaam</h2>
+  <div class="work-grid">
+    <div class="work-item">
+      <h3>Aranya Café</h3>
+      <span>Brand identity, 2025</span>
+    </div>
+    <div class="work-item">
+      <h3>Vistara Homes</h3>
+      <span>Website &amp; UI, 2025</span>
+    </div>
+    <div class="work-item">
+      <h3>Mitti Ceramics</h3>
+      <span>Packaging, 2024</span>
+    </div>
+    <div class="work-item">
+      <h3>Nadi Studio</h3>
+      <span>Art direction, 2024</span>
+    </div>
+    <div class="work-item">
+      <h3>Kagaz Journal</h3>
+      <span>Editorial design, 2023</span>
+    </div>
+    <div class="work-item">
+      <h3>Bagh Collective</h3>
+      <span>Digital campaign, 2023</span>
+    </div>
+  </div>
+</section>
 
-function displayWeather(currentData, forecastData, pollutionData) {
-    // Hide welcome message and show weather content
-    welcomeMessage.style.display = 'none';
-    weatherContent.style.display = 'block';
-    
-    // Current Weather
-    displayCurrentWeather(currentData);
-    
-    // Hourly Forecast (next 24 hours)
-    displayHourlyForecast(forecastData);
-    
-    // Daily Forecast (5 days)
-    displayDailyForecast(forecastData);
-    
-    // Air Quality
-    displayAirQuality(pollutionData);
-    
-    // Scroll to weather section
-    setTimeout(() => {
-        weatherContent.scrollIntoView({ behavior: 'smooth' });
-    }, 100);
-}
+<section id="about">
+  <div class="about">
+    <div>
+      <h2 class="section-title">Hamare baare mein</h2>
+      <p>Studio Noor 2019 mein shuru hua, ek simple vishwas ke saath — ki achha design sirf sundar nahi, samajhne mein aasan bhi hona chahiye. Hum chhoti teams ke saath kaam karna pasand karte hain, jahan har detail par dhyan diya ja sake.</p>
+      <p>Chahe woh ek naya brand ho ya ek purana product jise dobara sochna ho, hum shuru karte hain content aur context se — templates se nahi.</p>
+    </div>
+    <div class="stats">
+      <div class="stat"><b>40+</b><span>Projects poore</span></div>
+      <div class="stat"><b>6</b><span>Saalon ka safar</span></div>
+      <div class="stat"><b>12</b><span>Ongoing clients</span></div>
+    </div>
+  </div>
+</section>
 
-function displayCurrentWeather(data) {
-    const { name, sys, main, weather, wind, clouds, visibility } = data;
-    const date = new Date().toLocaleDateString('en-US', {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-    });
-    
-    document.getElementById('cityName').textContent = `${name}, ${sys.country}`;
-    document.getElementById('date').textContent = date;
-    document.getElementById('temperature').textContent = `${Math.round(main.temp)}°C`;
-    document.getElementById('weatherDescription').textContent = weather[0].main;
-    
-    const iconCode = weather[0].icon;
-    document.getElementById('weatherIcon').src = 
-        `https://openweathermap.org/img/wn/${iconCode}@4x.png`;
-    
-    document.getElementById('humidity').textContent = `${main.humidity}%`;
-    document.getElementById('windSpeed').textContent = `${wind.speed.toFixed(1)} m/s`;
-    document.getElementById('pressure').textContent = `${main.pressure} hPa`;
-    document.getElementById('visibility').textContent = `${(visibility / 1000).toFixed(1)} km`;
-    document.getElementById('feelsLike').textContent = `${Math.round(main.feels_like)}°C`;
-    document.getElementById('uvIndex').textContent = weather[0].main === 'Clear' ? '🌞 High' : '🌤️ Moderate';
-}
+<section id="contact" class="contact">
+  <div class="contact-row">
+    <h2>Kuch banana hai? Baat karte hain.</h2>
+  </div>
+  <form onsubmit="event.preventDefault(); alert('Dhanyavaad! Hum jald hi sampark karenge.');">
+    <input type="text" placeholder="Aapka naam" required>
+    <input type="email" placeholder="Email address" required>
+    <textarea placeholder="Project ke baare mein thoda batayein"></textarea>
+    <button type="submit" class="btn" style="width:fit-content;">Bhejein</button>
+  </form>
+</section>
 
-function displayHourlyForecast(data) {
-    const hourlyContainer = document.getElementById('hourlyForecast');
-    hourlyContainer.innerHTML = '';
-    
-    const hourlyData = data.list.slice(0, 8); // Next 24 hours (8 * 3-hour intervals)
-    
-    hourlyData.forEach(hour => {
-        const date = new Date(hour.dt * 1000);
-        const time = date.toLocaleTimeString('en-US', { 
-            hour: '2-digit', 
-            minute: '2-digit',
-            hour12: true 
-        });
-        
-        const card = document.createElement('div');
-        card.className = 'forecast-card';
-        card.innerHTML = `
-            <div class="time">${time}</div>
-            <div class="icon">
-                <img src="https://openweathermap.org/img/wn/${hour.weather[0].icon}@2x.png" 
-                     alt="weather icon" style="width: 50px; height: 50px;">
-            </div>
-            <div class="temp">${Math.round(hour.main.temp)}°C</div>
-            <div class="feels-like">Feels ${Math.round(hour.main.feels_like)}°C</div>
-            <div class="description">${hour.weather[0].main}</div>
-            <div class="chance">💧 ${hour.pop * 100}%</div>
-        `;
-        
-        hourlyContainer.appendChild(card);
-    });
-}
+<footer>
+  <span>© 2026 Studio Noor</span>
+  <span>Mumbai, India</span>
+</footer>
 
-function displayDailyForecast(data) {
-    const dailyContainer = document.getElementById('dailyForecast');
-    dailyContainer.innerHTML = '';
-    
-    const dailyData = {};
-    
-    // Group forecast by day
-    data.list.forEach(item => {
-        const date = new Date(item.dt * 1000).toLocaleDateString();
-        
-        if (!dailyData[date]) {
-            dailyData[date] = {
-                date: item.dt,
-                temps: [item.main.temp],
-                weather: item.weather[0],
-                pop: [item.pop]
-            };
-        } else {
-            dailyData[date].temps.push(item.main.temp);
-            dailyData[date].pop.push(item.pop);
-        }
-    });
-    
-    // Display next 5 days
-    Object.keys(dailyData).slice(0, 5).forEach(date => {
-        const day = dailyData[date];
-        const minTemp = Math.min(...day.temps);
-        const maxTemp = Math.max(...day.temps);
-        const avgPop = (day.pop.reduce((a, b) => a + b) / day.pop.length * 100).toFixed(0);
-        const dayDate = new Date(day.date * 1000);
-        const dayName = dayDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-        
-        const card = document.createElement('div');
-        card.className = 'forecast-card';
-        card.innerHTML = `
-            <div class="time">${dayName}</div>
-            <div class="icon">
-                <img src="https://openweathermap.org/img/wn/${day.weather.icon}@2x.png" 
-                     alt="weather icon" style="width: 50px; height: 50px;">
-            </div>
-            <div class="temp">${Math.round(maxTemp)}°C</div>
-            <div class="feels-like">${Math.round(minTemp)}°C</div>
-            <div class="description">${day.weather.main}</div>
-            <div class="chance">💧 ${avgPop}%</div>
-        `;
-        
-        dailyContainer.appendChild(card);
-    });
-}
-
-function displayAirQuality(data) {
-    const airQualityContent = document.getElementById('airQualityContent');
-    const aqi = data.list[0].main.aqi;
-    
-    const aqiLevels = ['Good', 'Fair', 'Moderate', 'Poor', 'Very Poor'];
-    const aqiClasses = ['aqi-good', 'aqi-fair', 'aqi-moderate', 'aqi-poor', 'aqi-very-poor'];
-    
-    const components = data.list[0].components;
-    
-    airQualityContent.innerHTML = `
-        <div class="aqi-item">
-            <div class="aqi-label">
-                <i class="fas fa-air-quality"></i>
-                Overall Air Quality Index
-            </div>
-            <div class="aqi-value ${aqiClasses[aqi - 1]}">
-                ${aqiLevels[aqi - 1]} (${aqi})
-            </div>
-        </div>
-        <div class="aqi-item">
-            <div class="aqi-label">
-                <i class="fas fa-molecule"></i>
-                PM2.5
-            </div>
-            <div class="aqi-value">
-                ${components.pm2_5?.toFixed(2) || 'N/A'} µg/m³
-            </div>
-        </div>
-        <div class="aqi-item">
-            <div class="aqi-label">
-                <i class="fas fa-molecule"></i>
-                PM10
-            </div>
-            <div class="aqi-value">
-                ${components.pm10?.toFixed(2) || 'N/A'} µg/m³
-            </div>
-        </div>
-        <div class="aqi-item">
-            <div class="aqi-label">
-                <i class="fas fa-flask"></i>
-                NO₂
-            </div>
-            <div class="aqi-value">
-                ${components.no2?.toFixed(2) || 'N/A'} µg/m³
-            </div>
-        </div>
-        <div class="aqi-item">
-            <div class="aqi-label">
-                <i class="fas fa-flask"></i>
-                O₃
-            </div>
-            <div class="aqi-value">
-                ${components.o3?.toFixed(2) || 'N/A'} µg/m³
-            </div>
-        </div>
-    `;
-}
-
-// Favorites Management
-function addToFavorites(city, country) {
-    const favorite = { city, country };
-    
-    // Check if already in favorites
-    const exists = favorites.some(f => 
-        f.city.toLowerCase() === city.toLowerCase() && 
-        f.country === country
-    );
-    
-    if (!exists) {
-        favorites.unshift(favorite);
-        if (favorites.length > 10) {
-            favorites.pop(); // Keep only 10 favorites
-        }
-        saveFavorites();
-        loadFavorites();
-    }
-}
-
-function saveFavorites() {
-    localStorage.setItem('weatherFavorites', JSON.stringify(favorites));
-}
-
-function loadFavorites() {
-    favoritesList.innerHTML = '';
-    
-    if (favorites.length === 0) {
-        clearFavoritesBtn.style.display = 'none';
-        return;
-    }
-    
-    clearFavoritesBtn.style.display = 'inline-block';
-    
-    favorites.forEach((fav, index) => {
-        const btn = document.createElement('button');
-        btn.className = 'favorite-btn';
-        btn.innerHTML = `
-            ${fav.city}, ${fav.country}
-            <span class="remove" data-index="${index}">✕</span>
-        `;
-        
-        btn.addEventListener('click', () => {
-            searchInput.value = `${fav.city}, ${fav.country}`;
-            searchWeather();
-        });
-        
-        btn.querySelector('.remove').addEventListener('click', (e) => {
-            e.stopPropagation();
-            removeFavorite(index);
-        });
-        
-        favoritesList.appendChild(btn);
-    });
-}
-
-function removeFavorite(index) {
-    favorites.splice(index, 1);
-    saveFavorites();
-    loadFavorites();
-}
-
-function clearAllFavorites() {
-    if (confirm('Are you sure you want to clear all favorites?')) {
-        favorites = [];
-        saveFavorites();
-        loadFavorites();
-    }
-}
-
-// UI Helpers
-function showLoading(show) {
-    loading.classList.toggle('active', show);
-}
-
-function showError(message) {
-    errorMessage.textContent = message;
-    errorMessage.classList.add('show');
-}
-
-function hideError() {
-    errorMessage.classList.remove('show');
-    setTimeout(() => {
-        errorMessage.textContent = '';
-    }, 300);
-}
-
-// Initial load message
-console.log('🌤️ Weather Dashboard Loaded');
-console.log('💡 Tip: Search for a city or use your current location to get started!');
+</body>
+</html>
+```
