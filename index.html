@@ -1,0 +1,456 @@
+// Weather Dashboard API Configuration
+const API_KEY = '9d1b8dbf4afdc774323471feebf27309'; // OpenWeatherMap Free API Key
+const BASE_URL = 'https://api.openweathermap.org/data/2.5';
+const GEO_API = 'https://api.openweathermap.org/geo/1.0';
+
+// DOM Elements
+const searchInput = document.getElementById('searchInput');
+const searchBtn = document.getElementById('searchBtn');
+const locationBtn = document.getElementById('locationBtn');
+const errorMessage = document.getElementById('errorMessage');
+const loading = document.getElementById('loading');
+const weatherContent = document.getElementById('weatherContent');
+const welcomeMessage = document.getElementById('welcomeMessage');
+const suggestions = document.getElementById('suggestions');
+const suggestionsBox = document.querySelector('.suggestions');
+const favoritesList = document.getElementById('favoritesList');
+const clearFavoritesBtn = document.getElementById('clearFavoritesBtn');
+
+// State
+let favorites = JSON.parse(localStorage.getItem('weatherFavorites')) || [];
+let debounceTimer;
+
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
+    initializeApp();
+});
+
+function initializeApp() {
+    loadFavorites();
+    addEventListeners();
+}
+
+function addEventListeners() {
+    searchBtn.addEventListener('click', searchWeather);
+    locationBtn.addEventListener('click', getCurrentLocation);
+    searchInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') searchWeather();
+    });
+    searchInput.addEventListener('input', handleSearchInput);
+    clearFavoritesBtn.addEventListener('click', clearAllFavorites);
+    
+    // Close suggestions when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.search-section')) {
+            suggestionsBox.classList.remove('active');
+        }
+    });
+}
+
+// Search functionality with debounce
+function handleSearchInput() {
+    clearTimeout(debounceTimer);
+    const query = searchInput.value.trim();
+    
+    if (query.length < 2) {
+        suggestionsBox.classList.remove('active');
+        return;
+    }
+    
+    debounceTimer = setTimeout(() => {
+        fetchCitySuggestions(query);
+    }, 300);
+}
+
+async function fetchCitySuggestions(query) {
+    try {
+        const response = await fetch(
+            `${GEO_API}/direct?q=${query}&limit=5&appid=${API_KEY}`
+        );
+        const data = await response.json();
+        
+        if (data.length > 0) {
+            displaySuggestions(data);
+        } else {
+            suggestionsBox.classList.remove('active');
+        }
+    } catch (error) {
+        console.error('Error fetching suggestions:', error);
+    }
+}
+
+function displaySuggestions(cities) {
+    suggestions.innerHTML = '';
+    
+    cities.forEach(city => {
+        const item = document.createElement('div');
+        item.className = 'suggestion-item';
+        const countryName = city.country ? `, ${city.country}` : '';
+        const stateName = city.state ? `, ${city.state}` : '';
+        item.textContent = `${city.name}${stateName}${countryName}`;
+        
+        item.addEventListener('click', () => {
+            searchInput.value = `${city.name}${stateName}${countryName}`;
+            suggestionsBox.classList.remove('active');
+            fetchWeatherByCoordinates(city.lat, city.lon);
+        });
+        
+        suggestions.appendChild(item);
+    });
+    
+    suggestionsBox.classList.add('active');
+}
+
+async function searchWeather() {
+    const city = searchInput.value.trim();
+    
+    if (!city) {
+        showError('Please enter a city name');
+        return;
+    }
+    
+    try {
+        const response = await fetch(
+            `${GEO_API}/direct?q=${city}&limit=1&appid=${API_KEY}`
+        );
+        const data = await response.json();
+        
+        if (data.length > 0) {
+            const { lat, lon } = data[0];
+            fetchWeatherByCoordinates(lat, lon);
+            suggestionsBox.classList.remove('active');
+        } else {
+            showError('City not found. Please try another search.');
+        }
+    } catch (error) {
+        showError('Error searching for city');
+        console.error('Search error:', error);
+    }
+}
+
+async function getCurrentLocation() {
+    if (!navigator.geolocation) {
+        showError('Geolocation is not supported by your browser');
+        return;
+    }
+    
+    showLoading(true);
+    navigator.geolocation.getCurrentPosition(
+        (position) => {
+            const { latitude, longitude } = position.coords;
+            fetchWeatherByCoordinates(latitude, longitude);
+        },
+        (error) => {
+            showError(`Geolocation error: ${error.message}`);
+            showLoading(false);
+        }
+    );
+}
+
+async function fetchWeatherByCoordinates(lat, lon) {
+    showLoading(true);
+    hideError();
+    
+    try {
+        const [currentResponse, forecastResponse, pollutionResponse] = await Promise.all([
+            fetch(`${BASE_URL}/weather?lat=${lat}&lon=${lon}&units=metric&appid=${API_KEY}`),
+            fetch(`${BASE_URL}/forecast?lat=${lat}&lon=${lon}&units=metric&appid=${API_KEY}`),
+            fetch(`https://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${lon}&appid=${API_KEY}`)
+        ]);
+        
+        if (!currentResponse.ok) throw new Error('Failed to fetch weather');
+        
+        const currentData = await currentResponse.json();
+        const forecastData = await forecastResponse.json();
+        const pollutionData = await pollutionResponse.json();
+        
+        displayWeather(currentData, forecastData, pollutionData);
+        addToFavorites(currentData.name, currentData.sys.country);
+        
+    } catch (error) {
+        showError('Failed to fetch weather data. Please try again.');
+        console.error('Fetch error:', error);
+    } finally {
+        showLoading(false);
+    }
+}
+
+function displayWeather(currentData, forecastData, pollutionData) {
+    // Hide welcome message and show weather content
+    welcomeMessage.style.display = 'none';
+    weatherContent.style.display = 'block';
+    
+    // Current Weather
+    displayCurrentWeather(currentData);
+    
+    // Hourly Forecast (next 24 hours)
+    displayHourlyForecast(forecastData);
+    
+    // Daily Forecast (5 days)
+    displayDailyForecast(forecastData);
+    
+    // Air Quality
+    displayAirQuality(pollutionData);
+    
+    // Scroll to weather section
+    setTimeout(() => {
+        weatherContent.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
+}
+
+function displayCurrentWeather(data) {
+    const { name, sys, main, weather, wind, clouds, visibility } = data;
+    const date = new Date().toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
+    
+    document.getElementById('cityName').textContent = `${name}, ${sys.country}`;
+    document.getElementById('date').textContent = date;
+    document.getElementById('temperature').textContent = `${Math.round(main.temp)}°C`;
+    document.getElementById('weatherDescription').textContent = weather[0].main;
+    
+    const iconCode = weather[0].icon;
+    document.getElementById('weatherIcon').src = 
+        `https://openweathermap.org/img/wn/${iconCode}@4x.png`;
+    
+    document.getElementById('humidity').textContent = `${main.humidity}%`;
+    document.getElementById('windSpeed').textContent = `${wind.speed.toFixed(1)} m/s`;
+    document.getElementById('pressure').textContent = `${main.pressure} hPa`;
+    document.getElementById('visibility').textContent = `${(visibility / 1000).toFixed(1)} km`;
+    document.getElementById('feelsLike').textContent = `${Math.round(main.feels_like)}°C`;
+    document.getElementById('uvIndex').textContent = weather[0].main === 'Clear' ? '🌞 High' : '🌤️ Moderate';
+}
+
+function displayHourlyForecast(data) {
+    const hourlyContainer = document.getElementById('hourlyForecast');
+    hourlyContainer.innerHTML = '';
+    
+    const hourlyData = data.list.slice(0, 8); // Next 24 hours (8 * 3-hour intervals)
+    
+    hourlyData.forEach(hour => {
+        const date = new Date(hour.dt * 1000);
+        const time = date.toLocaleTimeString('en-US', { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            hour12: true 
+        });
+        
+        const card = document.createElement('div');
+        card.className = 'forecast-card';
+        card.innerHTML = `
+            <div class="time">${time}</div>
+            <div class="icon">
+                <img src="https://openweathermap.org/img/wn/${hour.weather[0].icon}@2x.png" 
+                     alt="weather icon" style="width: 50px; height: 50px;">
+            </div>
+            <div class="temp">${Math.round(hour.main.temp)}°C</div>
+            <div class="feels-like">Feels ${Math.round(hour.main.feels_like)}°C</div>
+            <div class="description">${hour.weather[0].main}</div>
+            <div class="chance">💧 ${hour.pop * 100}%</div>
+        `;
+        
+        hourlyContainer.appendChild(card);
+    });
+}
+
+function displayDailyForecast(data) {
+    const dailyContainer = document.getElementById('dailyForecast');
+    dailyContainer.innerHTML = '';
+    
+    const dailyData = {};
+    
+    // Group forecast by day
+    data.list.forEach(item => {
+        const date = new Date(item.dt * 1000).toLocaleDateString();
+        
+        if (!dailyData[date]) {
+            dailyData[date] = {
+                date: item.dt,
+                temps: [item.main.temp],
+                weather: item.weather[0],
+                pop: [item.pop]
+            };
+        } else {
+            dailyData[date].temps.push(item.main.temp);
+            dailyData[date].pop.push(item.pop);
+        }
+    });
+    
+    // Display next 5 days
+    Object.keys(dailyData).slice(0, 5).forEach(date => {
+        const day = dailyData[date];
+        const minTemp = Math.min(...day.temps);
+        const maxTemp = Math.max(...day.temps);
+        const avgPop = (day.pop.reduce((a, b) => a + b) / day.pop.length * 100).toFixed(0);
+        const dayDate = new Date(day.date * 1000);
+        const dayName = dayDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+        
+        const card = document.createElement('div');
+        card.className = 'forecast-card';
+        card.innerHTML = `
+            <div class="time">${dayName}</div>
+            <div class="icon">
+                <img src="https://openweathermap.org/img/wn/${day.weather.icon}@2x.png" 
+                     alt="weather icon" style="width: 50px; height: 50px;">
+            </div>
+            <div class="temp">${Math.round(maxTemp)}°C</div>
+            <div class="feels-like">${Math.round(minTemp)}°C</div>
+            <div class="description">${day.weather.main}</div>
+            <div class="chance">💧 ${avgPop}%</div>
+        `;
+        
+        dailyContainer.appendChild(card);
+    });
+}
+
+function displayAirQuality(data) {
+    const airQualityContent = document.getElementById('airQualityContent');
+    const aqi = data.list[0].main.aqi;
+    
+    const aqiLevels = ['Good', 'Fair', 'Moderate', 'Poor', 'Very Poor'];
+    const aqiClasses = ['aqi-good', 'aqi-fair', 'aqi-moderate', 'aqi-poor', 'aqi-very-poor'];
+    
+    const components = data.list[0].components;
+    
+    airQualityContent.innerHTML = `
+        <div class="aqi-item">
+            <div class="aqi-label">
+                <i class="fas fa-air-quality"></i>
+                Overall Air Quality Index
+            </div>
+            <div class="aqi-value ${aqiClasses[aqi - 1]}">
+                ${aqiLevels[aqi - 1]} (${aqi})
+            </div>
+        </div>
+        <div class="aqi-item">
+            <div class="aqi-label">
+                <i class="fas fa-molecule"></i>
+                PM2.5
+            </div>
+            <div class="aqi-value">
+                ${components.pm2_5?.toFixed(2) || 'N/A'} µg/m³
+            </div>
+        </div>
+        <div class="aqi-item">
+            <div class="aqi-label">
+                <i class="fas fa-molecule"></i>
+                PM10
+            </div>
+            <div class="aqi-value">
+                ${components.pm10?.toFixed(2) || 'N/A'} µg/m³
+            </div>
+        </div>
+        <div class="aqi-item">
+            <div class="aqi-label">
+                <i class="fas fa-flask"></i>
+                NO₂
+            </div>
+            <div class="aqi-value">
+                ${components.no2?.toFixed(2) || 'N/A'} µg/m³
+            </div>
+        </div>
+        <div class="aqi-item">
+            <div class="aqi-label">
+                <i class="fas fa-flask"></i>
+                O₃
+            </div>
+            <div class="aqi-value">
+                ${components.o3?.toFixed(2) || 'N/A'} µg/m³
+            </div>
+        </div>
+    `;
+}
+
+// Favorites Management
+function addToFavorites(city, country) {
+    const favorite = { city, country };
+    
+    // Check if already in favorites
+    const exists = favorites.some(f => 
+        f.city.toLowerCase() === city.toLowerCase() && 
+        f.country === country
+    );
+    
+    if (!exists) {
+        favorites.unshift(favorite);
+        if (favorites.length > 10) {
+            favorites.pop(); // Keep only 10 favorites
+        }
+        saveFavorites();
+        loadFavorites();
+    }
+}
+
+function saveFavorites() {
+    localStorage.setItem('weatherFavorites', JSON.stringify(favorites));
+}
+
+function loadFavorites() {
+    favoritesList.innerHTML = '';
+    
+    if (favorites.length === 0) {
+        clearFavoritesBtn.style.display = 'none';
+        return;
+    }
+    
+    clearFavoritesBtn.style.display = 'inline-block';
+    
+    favorites.forEach((fav, index) => {
+        const btn = document.createElement('button');
+        btn.className = 'favorite-btn';
+        btn.innerHTML = `
+            ${fav.city}, ${fav.country}
+            <span class="remove" data-index="${index}">✕</span>
+        `;
+        
+        btn.addEventListener('click', () => {
+            searchInput.value = `${fav.city}, ${fav.country}`;
+            searchWeather();
+        });
+        
+        btn.querySelector('.remove').addEventListener('click', (e) => {
+            e.stopPropagation();
+            removeFavorite(index);
+        });
+        
+        favoritesList.appendChild(btn);
+    });
+}
+
+function removeFavorite(index) {
+    favorites.splice(index, 1);
+    saveFavorites();
+    loadFavorites();
+}
+
+function clearAllFavorites() {
+    if (confirm('Are you sure you want to clear all favorites?')) {
+        favorites = [];
+        saveFavorites();
+        loadFavorites();
+    }
+}
+
+// UI Helpers
+function showLoading(show) {
+    loading.classList.toggle('active', show);
+}
+
+function showError(message) {
+    errorMessage.textContent = message;
+    errorMessage.classList.add('show');
+}
+
+function hideError() {
+    errorMessage.classList.remove('show');
+    setTimeout(() => {
+        errorMessage.textContent = '';
+    }, 300);
+}
+
+// Initial load message
+console.log('🌤️ Weather Dashboard Loaded');
+console.log('💡 Tip: Search for a city or use your current location to get started!');
